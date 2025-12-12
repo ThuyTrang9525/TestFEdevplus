@@ -1,17 +1,10 @@
 "use client";
 // src/components/SearchSection.tsx
 import { useState, useRef } from "react";
-// THÊM: Import icon tìm kiếm
-import SearchIcon from "../assets/images/icon-search.svg";
+import { SearchIcon } from "../assets";
+import type { SearchSectionProps } from "../types/interface";
 
-// 1. Định nghĩa Interface cho props
-interface SearchSectionProps {
-  onSearch: (location: string) => void;
-  onSearchChange: (value: string) => void;
-  searchResults: string[];
-  onSelectLocation: (location: string) => void;
-  loading: boolean;
-}
+
 
 // 2. Áp dụng interface vào component
 export default function SearchSection({
