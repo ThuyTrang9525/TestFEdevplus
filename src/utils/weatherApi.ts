@@ -1,10 +1,22 @@
 // src/utils/weatherApi.ts
 
-import type { WeatherData, DailyItem, HourlyItem } from "../types/interface";
-export type { WeatherData }
+import type { DailyItem, HourlyItem } from "../types/interface";
 const API_KEY = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
 const BASE_URL = "https://api.openweathermap.org/data/2.5/";
-
+export interface WeatherData {
+    location: string;
+    date: string;
+    temperature: number;
+    feelsLike: number;
+    humidity: number;
+    wind: number;
+    windUnit: string;
+    precipitation: number;
+    precipitationUnit: string;
+    icon: string;
+    hourly: HourlyItem[];
+    daily: DailyItem[];
+}
 export class LocationNotFoundError extends Error {
   constructor(message: string) {
     super(message);
