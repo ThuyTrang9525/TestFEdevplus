@@ -1,115 +1,118 @@
-"use client";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { useState, useCallback, useEffect } from "react";
 import Header from "./components/Header";
 import SearchSection from "./components/SearchSection";
 import WeatherContent from "./components/WeatherContent";
-import { fetchWeatherData, LocationNotFoundError } from "./utils/weatherApi";
-import type { WeatherData } from "./utils/weatherApi";
 
-const getBrowserUnit = (params: URLSearchParams) =>
-  (params.get("unit") as "metric" | "imperial") || "metric";
-const getBrowserLocation = (params: URLSearchParams) => params.get("location");
+import {
+  fetchWeatherData,
+  LocationNotFoundError,
+} from "../services/weatherApi";
+import type { WeatherData } from "../services/weatherApi";
 
-const updateUrlHistory = (location: string, unit: "metric" | "imperial") => {
-  const encodedLocation = encodeURIComponent(location);
-  const newUrl = `/?location=${encodedLocation}&unit=${unit}`;
-  window.history.replaceState(null, "", newUrl);
-};
+type Unit = "metric" | "imperial";
+
+const DEFAULT_LOCATION = "Berlin, Germany";
+const DEFAULT_UNIT: Unit = "metric";
 
 export default function App() {
-  const initialSearchParams = new URLSearchParams(window.location.search);
-  const initialUnit = getBrowserUnit(initialSearchParams);
-  const initialLocation = getBrowserLocation(initialSearchParams);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const initialDay: string = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-  });
+  const location = searchParams.get("location") ?? DEFAULT_LOCATION;
+  const unit = (searchParams.get("unit") as Unit) ?? DEFAULT_UNIT;
 
-  const [unit, setUnit] = useState<"metric" | "imperial">(initialUnit);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<string[]>([]);
-  const [selectedDay, setSelectedDay] = useState<string>(initialDay);
+  const [selectedDay, setSelectedDay] = useState<string>("");
 
-  const handleSearch = useCallback(
-    async (location: string) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchData() {
       setLoading(true);
       setError(null);
 
-      const searchLocation: string =
-        location || initialLocation || "Berlin, Germany";
-
       try {
-        const data: WeatherData = await fetchWeatherData(searchLocation, unit);
+        const data = await fetchWeatherData(location, unit);
+        if (cancelled) return;
 
         setWeatherData(data);
-        setSearchResults([]);
-        setSelectedDay(initialDay);
-
-        if (data?.location) {
-          updateUrlHistory(data.location, unit);
-        }
+        setSelectedDay(
+          new Date().toLocaleDateString("en-US", { weekday: "long" })
+        );
       } catch (err) {
-        console.error("API Error:", err);
+        if (cancelled) return;
 
         if (err instanceof LocationNotFoundError) {
           setWeatherData(null);
           setError(null);
         } else {
-          setError(
-            "We couldn't get the weather data. Please try another city or check your API key."
-          );
           setWeatherData(null);
+          setError(
+            "We couldn't get the weather data. Please try another city."
+          );
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
+    }
+
+    fetchData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location, unit]);
+
+  const pushUrl = useCallback(
+    (nextLocation: string, nextUnit: Unit = unit) => {
+      const params = new URLSearchParams({
+        location: nextLocation,
+        unit: nextUnit,
+      });
+
+      navigate(`/?${params.toString()}`);
     },
-    [unit, initialLocation]
+    [navigate, unit]
   );
 
-  useEffect(() => {
-    if (!weatherData && !loading) {
-      const defaultSearchLocation: string =
-        initialLocation || "Berlin, Germany";
-      handleSearch(defaultSearchLocation);
+  const handleSearch = (value: string) => {
+    pushUrl(value || DEFAULT_LOCATION);
+  };
+
+  const handleSelectLocation = (value: string) => {
+    setSearchResults([]);
+    pushUrl(value);
+  };
+
+  const handleUnitChange = (nextUnit: Unit) => {
+    if (nextUnit !== unit) {
+      pushUrl(location, nextUnit);
     }
-  }, [handleSearch, weatherData, loading, initialLocation]);
+  };
 
   const handleSearchChange = (value: string) => {
-    if (value.trim()) {
-      setSearchResults([
-        `${value}`,
-        `${value}, France`,
-        `${value}, Germany`,
-        `${value}, USA`,
-      ]);
-    } else {
+    if (!value.trim()) {
       setSearchResults([]);
+      return;
     }
-  };
 
-  const handleSelectLocation = (location: string) => {
-    setSearchResults([]);
-    handleSearch(location);
-  };
-
-  const handleUnitChange = (newUnit: "metric" | "imperial") => {
-    if (newUnit !== unit) {
-      setUnit(newUnit);
-
-      const locationToRefetch: string =
-        weatherData?.location || initialLocation || "Berlin, Germany";
-
-      updateUrlHistory(locationToRefetch, newUnit);
-    }
+    setSearchResults([
+      value,
+      `${value}, France`,
+      `${value}, Germany`,
+      `${value}, USA`,
+    ]);
   };
 
   return (
     <div className="min-h-screen bg-slate-950">
       <Header unit={unit} onUnitChange={handleUnitChange} />
+
       <main className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
         <SearchSection
           onSearch={handleSearch}
@@ -118,17 +121,14 @@ export default function App() {
           onSelectLocation={handleSelectLocation}
           loading={loading}
         />
+
         <WeatherContent
           weatherData={weatherData}
           loading={loading}
           error={error}
-          onRetry={() =>
-            handleSearch(
-              weatherData?.location || initialLocation || "Berlin, Germany"
-            )
-          }
           selectedDay={selectedDay}
           onSelectDay={setSelectedDay}
+          onRetry={() => pushUrl(location, unit)}
         />
       </main>
     </div>

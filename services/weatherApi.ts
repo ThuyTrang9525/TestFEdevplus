@@ -1,6 +1,6 @@
 // src/utils/weatherApi.ts
 
-import type { DailyItem, HourlyItem } from "../types/interface";
+import type { DailyItem, HourlyItem } from "../src/types/interface";
 const API_KEY = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
 const BASE_URL = "https://api.openweathermap.org/data/2.5/";
 export interface WeatherData {
@@ -34,7 +34,7 @@ import {
   SnowIcon,
   FogIcon,
   DefaultIcon,
-} from "../assets";
+} from "../src/assets";
 
 function getWeatherIcon(iconCode: string): string {
   if (iconCode.startsWith("01")) return SunnyIcon;
